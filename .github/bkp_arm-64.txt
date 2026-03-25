@@ -8,6 +8,125 @@ on:
     branches: [main]
 
 jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Poetry and dependencies
+        run: |
+          pip install poetry
+          poetry lock
+          poetry install
+
+      - name: Run tests
+        run: poetry run pytest
+
+      - name: Build executable
+        run: poetry run python scripts/build_exe.py
+
+      - name: Checkout executables repo
+        uses: actions/checkout@v4
+        with:
+          repository: ghpascon/executables
+          token: ${{ secrets.EXECUTABLES_TOKEN }}
+          path: executables-repo
+          ref: main
+
+      - name: Remove old project folder and copy executables
+        run: |
+          project_name=$(basename $GITHUB_REPOSITORY)
+          build_dir="TEMP/main"
+          dest_dir="executables-repo/linux/$project_name"
+
+          # Remove apenas o projeto antigo
+          rm -rf "$dest_dir"
+          mkdir -p "$dest_dir"
+
+          if [ -d "$build_dir" ]; then
+            rsync -av --exclude=build/ "$build_dir/" "$dest_dir/"
+          else
+            echo "Diretório $build_dir não encontrado, build pode ter falhado."
+            exit 1
+          fi
+
+      - name: Commit and push executables
+        run: |
+          cd executables-repo
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add -A
+          git commit -m "Update Linux executables for $project_name" || echo "No changes to commit"
+          git push
+
+  build-linux-arm64:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU for ARM64
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      - name: Prepare output directory
+        run: mkdir -p arm64-artifacts
+
+      - name: Build ARM64 executable in Docker
+        run: |
+          docker run --rm --platform linux/arm64 \
+            -v "$PWD:/workspace" \
+            -w /workspace \
+            arm64v8/python:3.11 bash -c "\
+              pip install poetry && \
+              poetry lock && \
+              poetry install && \
+              poetry run pytest && \
+              poetry run python scripts/build_exe.py && \
+              mkdir -p /workspace/arm64-artifacts && \
+              cp -r TEMP/main/* /workspace/arm64-artifacts/ || true"
+
+      - name: Checkout executables repo
+        uses: actions/checkout@v4
+        with:
+          repository: ghpascon/executables
+          token: ${{ secrets.EXECUTABLES_TOKEN }}
+          path: executables-repo
+          ref: main
+
+      - name: Remove old project folder and copy executables
+        run: |
+          project_name=$(basename $GITHUB_REPOSITORY)
+          dest_dir="executables-repo/linux-arm64/$project_name"
+
+          # Remove apenas o projeto antigo
+          rm -rf "$dest_dir"
+          mkdir -p "$dest_dir"
+
+          if [ -d "arm64-artifacts" ]; then
+            rsync -av --exclude=build/ arm64-artifacts/ "$dest_dir/"
+          else
+            echo "Diretório arm64-artifacts não encontrado, build pode ter falhado."
+            exit 1
+          fi
+
+      - name: Commit and push executables
+        run: |
+          cd executables-repo
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add -A
+          git commit -m "Update Linux ARM64 executables for $project_name" || echo "No changes to commit"
+          git pull --rebase
+          git push
+
   build-windows:
     runs-on: windows-latest
     steps:
@@ -46,7 +165,7 @@ jobs:
           Remove-Item -Path $destDir -Recurse -Force -ErrorAction SilentlyContinue
           New-Item -ItemType Directory -Force -Path $destDir
 
-          Copy-Item -Path TEMP\* -Destination $destDir\ -Recurse -Force
+          Copy-Item -Path TEMP\main\* -Destination $destDir\ -Recurse -Force
 
       - name: Commit and push executables
         shell: pwsh
@@ -58,69 +177,9 @@ jobs:
           git commit -m "Update Windows executables for $projectName" || echo "No changes to commit"
           git push
 
-  build-linux:
-    needs: [build-windows]
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Export project name
-        run: echo "PROJECT_NAME=$(basename $GITHUB_REPOSITORY)" >> $GITHUB_ENV
-
-      - name: Install Poetry and dependencies
-        run: |
-          pip install poetry
-          poetry lock
-          poetry install
-
-      - name: Run tests
-        run: poetry run pytest
-
-      - name: Build executable
-        run: poetry run python scripts/build_exe.py
-
-      - name: Checkout executables repo
-        uses: actions/checkout@v4
-        with:
-          repository: ghpascon/executables
-          token: ${{ secrets.EXECUTABLES_TOKEN }}
-          path: executables-repo
-          ref: main
-
-      - name: Remove old project folder and copy executables
-        run: |
-          build_dir="TEMP"
-          dest_dir="executables-repo/linux/$PROJECT_NAME"
-
-          # Remove apenas o projeto antigo
-          rm -rf "$dest_dir"
-          mkdir -p "$dest_dir"
-
-          if [ -d "$build_dir" ]; then
-            rsync -av --exclude=build/ "$build_dir/" "$dest_dir/"
-          else
-            echo "Diretório $build_dir não encontrado, build pode ter falhado."
-            exit 1
-          fi
-
-      - name: Commit and push executables
-        run: |
-          cd executables-repo
-          git config user.name "github-actions"
-          git config user.email "github-actions@github.com"
-          git add -A
-          git commit -m "Update Linux executables for $PROJECT_NAME" || echo "No changes to commit"
-          git push
-
   tag-executables:
     runs-on: ubuntu-latest
-    needs: [build-linux]
+    needs: [build-linux, build-linux-arm64, build-windows]
     steps:
       - name: Checkout executables repo
         uses: actions/checkout@v4

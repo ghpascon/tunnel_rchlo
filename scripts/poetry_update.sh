@@ -1,4 +1,5 @@
+#!/usr/bin/env bash
 poetry cache clear pypi --all --no-interaction
 poetry sync
-poetry lock 
-poetry install 
+poetry lock --no-cache
+poetry install

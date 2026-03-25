@@ -16,23 +16,26 @@ class Controller:
 
 	# [BOX INFO]
 	def update_box_info(self, box_info: str):
-		box_info = box_info.replace('ç', ';')
-		parts = box_info.split(';')
-		box_id = None
-		qty = 0
-		if not len(parts) == 2:
-			error_msg = f'Invalid box info format: {box_info}'
-			self.state_msg = {'text': error_msg, 'level': 'error'}
-			logging.error(error_msg)
+		parts = box_info.replace('ç', ';').split(';')
+		if len(parts) != 4:
+			self.state_msg = {
+				'text': 'Invalid format. Expected: box_id;qtd;sku;datetime',
+				'level': 'error',
+			}
+			logging.error(f'Invalid box info format: {box_info}')
 			return
-		box_id, qty_str = parts
-		try:
-			qty = int(qty_str)
-		except ValueError:
-			logging.warning(f"Invalid quantity '{qty_str}' in box info: {box_info}")
-			self.state_msg = {'text': f"Invalid quantity '{qty_str}' in box info", 'level': 'error'}
+		box_id, qtd, sku, dt_str = parts
+		if len(sku) <= 11:
+			sku = sku.zfill(11)
+		else:
+			self.state_msg = {'text': 'SKU cannot be longer than 11 characters', 'level': 'error'}
+			logging.error(f'SKU cannot be longer than 11 characters: {sku}')
 			return
-		self.box_info = {'box_id': box_id, 'qty': qty}
+		qtd = int(qtd)
+
+		logging.info(f'box_id={box_id}, qtd={qtd}, sku={sku}, datetime={dt_str}')
+
+		self.box_info = {'box_id': box_id, 'qty': qtd, 'sku': sku}
 		logging.info(f'Updating box info: {self.box_info}')
 		self.state_msg = {'text': 'Box info updated', 'level': 'success'}
 
@@ -93,8 +96,27 @@ class Controller:
 
 	# [VALIDATION]
 	def _validate(self):
+		"""
+		States:
+		0 = Reading in progress
+		1 = Box OK
+		2 = Box NOK
+		"""
 		current_qty = len(self.tags)
 		expected_qty = self.box_info.get('qty', 0)
+		expected_sku = self.box_info.get('sku', None)
+
+		if not expected_sku or expected_qty <= 0:
+			return 2
+
+		# Validate if has not unexpected skus
+		current_skus = [tag.get('sku') for tag in self.tags.get_all()]
+		for sku in current_skus:
+			if sku != expected_sku:
+				logging.warning(f'Unexpected SKU found: {sku}. Expected: {expected_sku}')
+				return 2
+
+		# Validate quantity
 		if current_qty < expected_qty:
 			return 0
 		elif current_qty > expected_qty:

@@ -74,6 +74,7 @@ class RfidManager:
 		# NEW TAG
 		if new_tag:
 			logging.info(f'[ TAG ] {name} - Tag Data: {tag}')
+			tag['sku'] = tag.get('epc', '')[3:14]
 			# Integrate new tag
 			asyncio.create_task(self.integration.on_tag_integration(tag=tag))
 			self.controller.validate_tags(name=name)

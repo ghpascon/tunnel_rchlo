@@ -1,3 +1,6 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
 poetry run python -c "import app"
 poetry run pytest -s
 poetry run python -m ruff check --fix

@@ -1,6 +1,6 @@
 {
-    "TITLE": "X-BRIDGE",
-    "LOG_PATH": "C:/Users/DELL/Desktop/Logs",
+    "TITLE": "SmartX RFID Tunnel",
+    "LOG_PATH": "/home/gabriel/Desktop/Logs",
     "STORAGE_DAYS": 0,
     "OPEN_BROWSER": false,
     "BEEP": false,

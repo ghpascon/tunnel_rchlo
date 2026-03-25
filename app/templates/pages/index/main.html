@@ -13,9 +13,7 @@
         {% include 'controller/_box_info.html' %}
       </div>
     </div>
-    {% if table == "complete" %} {% include 'includes/_tags_all.html' %} {% elif
-    table == "gtin" %} {% include 'includes/_tags_gtin.html' %} {% else %} {%
-    include 'includes/_tags.html' %} {% endif %}
+    {% include 'includes/_tags_all.html' %}
   </div>
 </div>
 {% endblock %}
