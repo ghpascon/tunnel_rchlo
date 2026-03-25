@@ -69,6 +69,9 @@ class RfidManager:
 	def on_tag(self, name: str, tag_data: dict):
 		if self.controller.state_sent:
 			return
+
+		if tag_data.get('epc', '') in [tag.get('epc') for tag in self.controller.last_tags]:
+			return
 		new_tag, tag = self.tags.add(tag_data, device=name)
 
 		# NEW TAG

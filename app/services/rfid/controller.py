@@ -13,6 +13,7 @@ class Controller:
 		self.state_sent = False
 		self.validation_time = 1
 		self.state_msg = {}
+		self.last_tags = []
 
 	# [BOX INFO]
 	def update_box_info(self, box_info: str):
@@ -62,6 +63,7 @@ class Controller:
 		self.state_sent = True
 
 	async def _approve(self, name: str):
+		self.last_tags = self.tags.get_all()
 		logging.info(f"{'='*20} Approving box {'='*20}")
 		logging.info(f'Box info: {self.box_info}')
 		success, msg = await self.devices.write_gpo(
