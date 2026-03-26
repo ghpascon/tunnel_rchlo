@@ -3,6 +3,7 @@ from smartx_rfid.devices import DeviceManager
 from smartx_rfid.utils import TagList
 import asyncio
 from smartx_rfid.utils import delayed_function
+from app.core import settings
 
 
 class Controller:
@@ -11,7 +12,6 @@ class Controller:
 		self.tags = tags
 		self.devices = devices
 		self.state_sent = False
-		self.validation_time = 1
 		self.state_msg = {}
 		self.last_tags = []
 
@@ -148,7 +148,7 @@ class Controller:
 			else:
 				asyncio.create_task(
 					delayed_function(
-						self.validate_tags, self.validation_time, name, make_action=True
+						self.validate_tags, settings.VALIDATION_TIME, name, make_action=True
 					)
 				)
 		# Box NOK

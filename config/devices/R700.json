@@ -4,14 +4,89 @@
     "USERNAME": "root",
     "PASSWORD": "impinj",
     "START_READING": false,
-    "SESSION": 1,
-    "ACTIVE_ANT": [
-        1,
-        2,
-        3,
-        4
-    ],
-    "READ_POWER": 33,
-    "READ_RSSI": -80,
-    "GPI_START": true
+    "READING_CONFIG": {
+        "antennaConfigs": [
+            {
+                "antennaPort": 1,
+                "estimatedTagPopulation": 16,
+                "fastId": "enabled",
+                "inventorySearchMode": "single-target",
+                "inventorySession": 1,
+                "receiveSensitivityDbm": -60,
+                "rfMode": 1111,
+                "transmitPowerCdbm": 3300
+            },
+            {
+                "antennaPort": 2,
+                "estimatedTagPopulation": 16,
+                "fastId": "enabled",
+                "inventorySearchMode": "single-target",
+                "inventorySession": 1,
+                "receiveSensitivityDbm": -60,
+                "rfMode": 1111,
+                "transmitPowerCdbm": 3300
+            },
+            {
+                "antennaPort": 3,
+                "estimatedTagPopulation": 16,
+                "fastId": "enabled",
+                "inventorySearchMode": "single-target",
+                "inventorySession": 1,
+                "receiveSensitivityDbm": -60,
+                "rfMode": 1111,
+                "transmitPowerCdbm": 3300
+            },
+            {
+                "antennaPort": 4,
+                "estimatedTagPopulation": 16,
+                "fastId": "enabled",
+                "inventorySearchMode": "single-target",
+                "inventorySession": 1,
+                "receiveSensitivityDbm": -60,
+                "rfMode": 1111,
+                "transmitPowerCdbm": 3300
+            }
+        ],
+        "startTriggers": [
+            {
+                "gpiTransitionEvent": {
+                    "gpi": 1,
+                    "transition": "high-to-low"
+                }
+            }
+        ],
+        "stopTriggers": [
+            {
+                "gpiTransitionEvent": {
+                    "gpi": 1,
+                    "transition": "low-to-high"
+                }
+            }
+        ],
+        "eventConfig": {
+            "common": {
+                "hostname": "disabled"
+            },
+            "tagInventory": {
+                "epc": "disabled",
+                "epcHex": "enabled",
+                "xpcHex": "disabled",
+                "tid": "disabled",
+                "tidHex": "enabled",
+                "antennaPort": "enabled",
+                "transmitPowerCdbm": "disabled",
+                "peakRssiCdbm": "enabled",
+                "frequency": "disabled",
+                "pc": "disabled",
+                "lastSeenTime": "disabled",
+                "phaseAngle": "disabled",
+                "tagReporting": {
+                    "reportingIntervalSeconds": 1,
+                    "tagCacheSize": 2048,
+                    "antennaIdentifier": "antennaPort",
+                    "tagIdentifier": "epc"
+                }
+            }
+        }
+    }
 }
