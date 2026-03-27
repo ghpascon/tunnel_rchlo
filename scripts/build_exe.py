@@ -113,7 +113,7 @@ for folder in EXTRA_FOLDERS:
 opts = [
 	ENTRY_SCRIPT,
 	f'--name={APP_NAME}',
-	'--onefile',
+	'--onedir',
 	f'--icon={icon_path}',
 	f'--distpath={output_dir}',
 	f'--workpath={work_dir}',
