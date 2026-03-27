@@ -119,3 +119,9 @@ async def clear_db():
 
 		logging.info('Database cleanup completed.')
 		logging.info(f"{'='*60}")
+
+
+async def clear_old_last_tags():
+	while True:
+		await asyncio.sleep(60)
+		rfid_manager.controller.clear_old_last_tags(minutes=settings.CLEAR_OLD_TAGS_MINUTES)

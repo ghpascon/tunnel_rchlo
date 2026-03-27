@@ -12,5 +12,7 @@
   "DATABASE_URL": "mysql+pymysql://root:admin@localhost:3306/smartx",
   "WEBHOOK_URL": "http://localhost:5001",
   "XTRACK_URL": "https://demo.smtx.com.br:6100/req",
-  "PORT": 5000
+  "PORT": 5000,
+  "VALIDATION_TIME": 3,
+  "CLEAR_OLD_TAGS_MINUTES": 20
 }

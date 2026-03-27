@@ -70,7 +70,7 @@ class RfidManager:
 		if self.controller.state_sent:
 			return
 
-		if tag_data.get('epc', '') in [tag.get('epc') for tag in self.controller.last_tags]:
+		if self.controller.epc_in_last_tags(tag_data.get('epc', '')):
 			return
 		new_tag, tag = self.tags.add(tag_data, device=name)
 

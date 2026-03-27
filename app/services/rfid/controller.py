@@ -4,6 +4,7 @@ from smartx_rfid.utils import TagList
 import asyncio
 from smartx_rfid.utils import delayed_function
 from app.core import settings
+from datetime import datetime, timedelta
 
 
 class Controller:
@@ -63,7 +64,10 @@ class Controller:
 		self.state_sent = True
 
 	async def _approve(self, name: str):
-		self.last_tags = self.tags.get_all()
+		self.last_tags = self.last_tags + [
+			{'epc': tag.get('epc'), 'timestamp': datetime.now()} for tag in self.tags.get_all()
+		]
+
 		logging.info(f"{'='*20} Approving box {'='*20}")
 		logging.info(f'Box info: {self.box_info}')
 		success, msg = await self.devices.write_gpo(
@@ -154,3 +158,12 @@ class Controller:
 		# Box NOK
 		elif state == 2:
 			self.reject_box(name)
+
+	# Last Tags
+	def epc_in_last_tags(self, epc: str) -> bool:
+		return epc in [tag.get('epc') for tag in self.last_tags]
+
+	def clear_old_last_tags(self, minutes: int = 5):
+		cutoff_time = datetime.now() - timedelta(minutes=minutes)
+		self.last_tags = [tag for tag in self.last_tags if tag.get('timestamp') > cutoff_time]
+		logging.info(f'Cleared old last tags. Remaining tags count: {len(self.last_tags)}')
