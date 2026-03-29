@@ -5,15 +5,18 @@ import asyncio
 from smartx_rfid.utils import delayed_function
 from app.core import settings
 from datetime import datetime, timedelta
+from app.models.rfid import BoxResults
+from .integration import Integration
 
 
 class Controller:
-	def __init__(self, devices: DeviceManager, tags: TagList):
+	def __init__(self, devices: DeviceManager, tags: TagList, integration: Integration):
 		self.box_info: dict = {}
 		self.tags = tags
 		self.devices = devices
 		self.state_sent = False
 		self.state_msg = {}
+		self.integration = integration
 		self.last_tags = []
 
 	# [BOX INFO]
@@ -93,7 +96,6 @@ class Controller:
 			self.state_msg = {'text': error_msg, 'level': 'error'}
 			logging.error(error_msg)
 		else:
-			self.state_msg = {'text': 'Box rejected', 'level': 'error'}
 			logging.info('GPO write successful for rejecting box')
 		self.reset_box()
 
@@ -113,6 +115,7 @@ class Controller:
 		expected_sku = self.box_info.get('sku', None)
 
 		if not expected_sku or expected_qty <= 0:
+			self.state_msg = {'text': 'No box info available', 'level': 'error'}
 			return 2
 
 		# Validate if has not unexpected skus
@@ -120,6 +123,10 @@ class Controller:
 		for sku in current_skus:
 			if sku != expected_sku:
 				logging.warning(f'Unexpected SKU found: {sku}. Expected: {expected_sku}')
+				self.state_msg = {
+					'text': f'Unexpected SKU found: {sku}. Expected: {expected_sku}',
+					'level': 'error',
+				}
 				return 2
 
 		# Validate quantity
@@ -144,6 +151,7 @@ class Controller:
 		# Reading is still in progress, wait and re-validate
 		if state == 0:
 			if make_action:
+				self.state_msg = {'text': 'Not enough tags read yet', 'level': 'info'}
 				self.reject_box(name)
 		# Box OK
 		elif state == 1:
@@ -157,7 +165,38 @@ class Controller:
 				)
 		# Box NOK
 		elif state == 2:
+			self.state_msg = {'text': 'Box rejected, quantity exceeds expected', 'level': 'error'}
 			self.reject_box(name)
+
+		if state == 2 or make_action:
+			self.save_box_result(state)
+
+	def save_box_result(self, validation_state: int):
+		state_str = None
+		if validation_state == 1:
+			state_str = 'approved'
+		else:
+			current_qty = len(self.tags)
+			expected_qty = self.box_info.get('qty', 0)
+			expected_sku = self.box_info.get('sku', None)
+			if current_qty < expected_qty:
+				state_str = 'rejected - not enough tags'
+			elif current_qty > expected_qty:
+				state_str = 'rejected - too many tags'
+			current_skus = [tag.get('sku') for tag in self.tags.get_all()]
+			for sku in current_skus:
+				if sku != expected_sku:
+					state_str = 'rejected - unexpected sku'
+
+		result = BoxResults(
+			box_id=self.box_info.get('box_id', 'unknown'),
+			sku=self.box_info.get('sku', 'unknown'),
+			expected_qty=self.box_info.get('qty', 0),
+			found_qty=len(self.tags),
+			validation_state=state_str,
+		)
+		with self.integration.db_manager.get_session() as session:
+			session.add(result)
 
 	# Last Tags
 	def epc_in_last_tags(self, epc: str) -> bool:

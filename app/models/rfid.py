@@ -5,10 +5,8 @@ Defines the Tag and Event models for storing RFID reader data
 with proper indexing and relationships.
 """
 
-from sqlalchemy import DateTime, func
-
 try:
-	from sqlalchemy import Column, Index, Integer, String, Text, UniqueConstraint
+	from sqlalchemy import Column, Integer, String, Text
 except ImportError as e:
 	raise ImportError(
 		'SQLAlchemy is required. Please install it with: pip install sqlalchemy'
@@ -41,34 +39,6 @@ class Tag(Base, BaseMixin):
 	ant = Column(Integer, nullable=True)
 	rssi = Column(Integer, nullable=True)
 
-	# timestamps
-	created_at = Column(
-		DateTime(timezone=True),
-		server_default=func.now(),
-		nullable=False,
-	)
-
-	updated_at = Column(
-		DateTime(timezone=True),
-		server_default=func.now(),
-		onupdate=func.now(),
-		nullable=False,
-	)
-
-	# Indexes for optimal query performance
-	__table_args__ = (
-		# Composite index for device + epc (most common query pattern)
-		Index('ix_tags_device_epc', 'device', 'epc'),
-		# Individual indexes
-		Index('ix_tags_device', 'device'),
-		Index('ix_tags_created_at', 'created_at'),
-		Index('ix_tags_tid', 'tid'),
-		Index('ix_tags_epc', 'epc'),
-		# Unique constraint for device+epc+created_at to prevent exact duplicates
-		# within the same second (adjust based on business requirements)
-		UniqueConstraint('device', 'epc', 'created_at', name='uq_tags_device_epc_time'),
-	)
-
 
 class Event(Base, BaseMixin):
 	"""
@@ -92,21 +62,24 @@ class Event(Base, BaseMixin):
 	# Event data
 	event_data = Column(Text, nullable=False)
 
-	# timestamps
-	created_at = Column(
-		DateTime(timezone=True),
-		server_default=func.now(),
-		nullable=False,
-	)
 
-	# Indexes for optimal query performance
-	__table_args__ = (
-		# Individual indexes
-		Index('ix_events_device', 'device'),
-		Index('ix_events_event_type', 'event_type'),
-		Index('ix_events_created_at', 'created_at'),
-		# Composite indexes
-		Index('ix_events_device_type', 'device', 'event_type'),
-		Index('ix_events_device_created', 'device', 'created_at'),
-		Index('ix_events_type_created', 'event_type', 'created_at'),
-	)
+class BoxResults(Base, BaseMixin):
+	"""
+	Model for storing results of box validations.
+
+	Stores the results of validating boxes based on RFID tag reads,
+	including the box information, validation status, and timestamps.
+	"""
+
+	__tablename__ = 'box_results'
+
+	# Primary key
+	id = Column(Integer, primary_key=True, autoincrement=True)
+
+	# Box information
+	box_id = Column(String(100), nullable=False)
+	sku = Column(String(20), nullable=False)
+	expected_qty = Column(Integer, nullable=False)
+	found_qty = Column(Integer, nullable=False)
+
+	status = Column(String(50), nullable=False)

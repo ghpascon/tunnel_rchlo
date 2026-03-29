@@ -147,8 +147,21 @@ class TrayManager:
 		url = f'http://localhost:{settings.PORT}'
 		webbrowser.open(url)
 
+	def _build_restart_command(self) -> list[str]:
+		if getattr(sys, 'frozen', False):
+			return [sys.executable, *sys.argv[1:]]
+
+		return [sys.executable, *sys.argv]
+
 	def restart_application(self):
-		subprocess.Popen([sys.executable] + sys.argv)
+		env = os.environ.copy()
+
+		if getattr(sys, 'frozen', False):
+			# Force a fresh onefile extraction for the restarted process.
+			env['PYINSTALLER_RESET_ENVIRONMENT'] = '1'
+			env.pop('_MEIPASS2', None)
+
+		subprocess.Popen(self._build_restart_command(), env=env, cwd=os.getcwd())
 		self.exit_application()
 
 	def exit_application(self):
