@@ -12,7 +12,7 @@ except ImportError as e:
 		'SQLAlchemy is required. Please install it with: pip install sqlalchemy'
 	) from e
 
-from .mixin import Base, BaseMixin
+from smartx_rfid.models import Base, BaseMixin
 
 
 class Tag(Base, BaseMixin):
