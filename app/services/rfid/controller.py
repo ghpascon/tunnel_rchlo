@@ -151,7 +151,7 @@ class Controller:
 		# Reading is still in progress, wait and re-validate
 		if state == 0:
 			if make_action:
-				self.state_msg = {'text': 'Not enough tags read yet', 'level': 'info'}
+				self.state_msg = {'text': 'Not enough tags', 'level': 'info'}
 				self.reject_box(name)
 		# Box OK
 		elif state == 1:
@@ -169,6 +169,7 @@ class Controller:
 			self.reject_box(name)
 
 		if state == 2 or make_action:
+			logging.info('Saving box result to database')
 			self.save_box_result(state)
 
 	def save_box_result(self, validation_state: int):
@@ -193,8 +194,9 @@ class Controller:
 			sku=self.box_info.get('sku', 'unknown'),
 			expected_qty=self.box_info.get('qty', 0),
 			found_qty=len(self.tags),
-			validation_state=state_str,
+			status=state_str,
 		)
+		logging.info(f'Box result: {result}')
 		with self.integration.db_manager.get_session() as session:
 			session.add(result)
 

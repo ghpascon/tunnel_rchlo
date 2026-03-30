@@ -185,6 +185,7 @@ class Integration:
 
 			# Get paginated records using yield_per for memory efficiency
 			query = session.query(model).limit(limit).offset(offset)
+			logging.info(f'{query=}')
 			records = [record.to_dict() for record in query]
 
 			return {

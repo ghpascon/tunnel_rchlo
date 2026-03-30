@@ -1,6 +1,6 @@
 [project]
 name = "x-bridge"
-version = "6.2.0"
+version = "6.3.0"
 description = "Conector RFID SMARTX"
 authors = [
     {name = "Gabriel Henrique Pascon",email = "gh.pascon@gmail.com"}

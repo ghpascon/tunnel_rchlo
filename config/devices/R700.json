@@ -15,36 +15,6 @@
                 "receiveSensitivityDbm": -60,
                 "rfMode": 1111,
                 "transmitPowerCdbm": 3300
-            },
-            {
-                "antennaPort": 2,
-                "estimatedTagPopulation": 16,
-                "fastId": "enabled",
-                "inventorySearchMode": "single-target",
-                "inventorySession": 1,
-                "receiveSensitivityDbm": -60,
-                "rfMode": 1111,
-                "transmitPowerCdbm": 3300
-            },
-            {
-                "antennaPort": 3,
-                "estimatedTagPopulation": 16,
-                "fastId": "enabled",
-                "inventorySearchMode": "single-target",
-                "inventorySession": 1,
-                "receiveSensitivityDbm": -60,
-                "rfMode": 1111,
-                "transmitPowerCdbm": 3300
-            },
-            {
-                "antennaPort": 4,
-                "estimatedTagPopulation": 16,
-                "fastId": "enabled",
-                "inventorySearchMode": "single-target",
-                "inventorySession": 1,
-                "receiveSensitivityDbm": -60,
-                "rfMode": 1111,
-                "transmitPowerCdbm": 3300
             }
         ],
         "startTriggers": [

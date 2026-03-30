@@ -19,7 +19,7 @@ async def get_log_content() -> Dict[str, Any]:
 		Dict containing log content and file metadata
 	"""
 	# Get today's log file
-	file_path = logger._get_filename_for_date(logger._now().date())
+	file_path = logger._get_filename_for_date(datetime.now())
 
 	# Read file content safely
 	try:
