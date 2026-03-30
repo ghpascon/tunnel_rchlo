@@ -6,7 +6,7 @@ with proper indexing and relationships.
 """
 
 try:
-	from sqlalchemy import Column, Integer, String, Text
+	from sqlalchemy import Column, Integer, String, Text, DateTime
 except ImportError as e:
 	raise ImportError(
 		'SQLAlchemy is required. Please install it with: pip install sqlalchemy'
@@ -83,3 +83,25 @@ class BoxResults(Base, BaseMixin):
 	found_qty = Column(Integer, nullable=False)
 
 	status = Column(String(50), nullable=False)
+
+
+class TagsInBox(Base, BaseMixin):
+	"""
+	Model for storing tags found in boxes.
+
+	Stores the EPCs of tags found in boxes during validation,
+	linked to the box results for reference.
+	"""
+
+	__tablename__ = 'tags_in_box'
+
+	# Primary key
+	id = Column(Integer, primary_key=True, autoincrement=True)
+	# timestamp
+	timestamp = Column(DateTime, nullable=False)
+
+	# Box reference
+	box_id = Column(String(100), nullable=False)
+
+	# EPC of the tag found in the box
+	epc = Column(String(24), nullable=False)

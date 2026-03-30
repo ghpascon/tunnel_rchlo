@@ -2,7 +2,7 @@ from fastapi import APIRouter, Body
 from fastapi.responses import JSONResponse
 from app.services import rfid_manager
 from smartx_rfid.utils.path import get_prefix_from_path
-from app.models.rfid import BoxResults
+from app.models.rfid import BoxResults, TagsInBox
 
 router_prefix = get_prefix_from_path(__file__)
 router = APIRouter(prefix=router_prefix, tags=[router_prefix])
@@ -40,6 +40,24 @@ async def generate_results_report():
 		)
 		rfid_manager.integration.db_manager.clear_table(
 			BoxResults
+		)  # Clear the table after generating the report
+		return JSONResponse(content=results)
+	except Exception as e:
+		return JSONResponse(status_code=500, content={'error': str(e)})
+
+
+@router.get(
+	'/generate_tags_in_box_report',
+	summary='Generate table report',
+	description='Generates a report for a specified database table.',
+)
+async def generate_tags_in_box_report():
+	try:
+		results = rfid_manager.integration.generate_table_report(
+			model=TagsInBox, limit=1000000000, offset=0
+		)
+		rfid_manager.integration.db_manager.clear_table(
+			TagsInBox
 		)  # Clear the table after generating the report
 		return JSONResponse(content=results)
 	except Exception as e:

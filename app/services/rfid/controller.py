@@ -5,7 +5,7 @@ import asyncio
 from smartx_rfid.utils import delayed_function
 from app.core import settings
 from datetime import datetime, timedelta
-from app.models.rfid import BoxResults
+from app.models.rfid import BoxResults, TagsInBox
 from .integration import Integration
 
 
@@ -189,16 +189,24 @@ class Controller:
 				if sku != expected_sku:
 					state_str = 'rejected - unexpected sku'
 
-		result = BoxResults(
-			box_id=self.box_info.get('box_id', 'unknown'),
-			sku=self.box_info.get('sku', 'unknown'),
-			expected_qty=self.box_info.get('qty', 0),
-			found_qty=len(self.tags),
-			status=state_str,
-		)
-		logging.info(f'Box result: {result}')
 		with self.integration.db_manager.get_session() as session:
+			result = BoxResults(
+				box_id=self.box_info.get('box_id', 'unknown'),
+				sku=self.box_info.get('sku', 'unknown'),
+				expected_qty=self.box_info.get('qty', 0),
+				found_qty=len(self.tags),
+				status=state_str,
+			)
+			logging.info(f'Box result: {result}')
 			session.add(result)
+			timestamp = datetime.now()
+			for tag in self.tags.get_all():
+				tag_in_box = TagsInBox(
+					box_id=self.box_info.get('box_id', 'unknown'),
+					timestamp=timestamp,
+					epc=tag.get('epc'),
+				)
+				session.add(tag_in_box)
 
 	# Last Tags
 	def epc_in_last_tags(self, epc: str) -> bool:
