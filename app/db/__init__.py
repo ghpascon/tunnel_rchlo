@@ -1,10 +1,12 @@
-from smartx_rfid.db import DatabaseManager
 import logging
-from app.models import get_all_models
+
+from smartx_rfid.db import DatabaseManager
+
 from app.core import settings
+from app.models import get_all_models
 
 
-def setup_database(database_url: str = None) -> DatabaseManager:
+def setup_database(database_url: str | None = None) -> DatabaseManager:
 	logging.info(f"{'='*60}")
 	logging.info('Initializing DatabaseManager')
 	db_manager = DatabaseManager(
