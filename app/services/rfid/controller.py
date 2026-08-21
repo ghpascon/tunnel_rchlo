@@ -121,8 +121,8 @@ class Controller:
 		self.box_info = {}
 		# Allow processing of next box
 		self.state_sent = False
-		# Clear transient state and tags to prepare for next operation
-		self.state_msg = {}
+		# NOTE: state_msg is intentionally NOT cleared here so the frontend
+		# can still read the last result via /get_state before it is consumed.
 		try:
 			self.tags.clear()
 		except Exception:
@@ -217,6 +217,10 @@ class Controller:
 				if sku != expected_sku:
 					state_str = 'rejected - unexpected sku'
 
+		if self.integration.db_manager is None:
+			logging.warning('Database manager is not initialized. Skipping save_box_result.')
+			return
+
 		with self.integration.db_manager.get_session() as session:
 			result = BoxResults(
 				box_id=self.box_info.get('box_id', 'unknown'),
@@ -235,6 +239,7 @@ class Controller:
 					epc=tag.get('epc'),
 				)
 				session.add(tag_in_box)
+			session.commit()
 
 	# Last Tags
 	def epc_in_last_tags(self, epc: str) -> bool:
