@@ -24,7 +24,7 @@ class Controller:
 		parts = box_info.replace('ç', ';').split(';')
 		if len(parts) != 4:
 			self.state_msg = {
-				'text': 'Invalid format. Expected: box_id;qtd;sku;datetime',
+				'text': 'Formato Inválido. Esperado: box_id;qtd;sku;datetime',
 				'level': 'error',
 			}
 			logging.error(f'Invalid box info format: {box_info}')
@@ -33,16 +33,25 @@ class Controller:
 		if len(sku) <= 11:
 			sku = sku.zfill(11)
 		else:
-			self.state_msg = {'text': 'SKU cannot be longer than 11 characters', 'level': 'error'}
+			self.state_msg = {'text': 'SKU não pode ter mais de 11 caracteres', 'level': 'error'}
 			logging.error(f'SKU cannot be longer than 11 characters: {sku}')
 			return
-		qtd = int(qtd)
+		try:
+			qtd = int(qtd)
+		except (ValueError, TypeError):
+			self.state_msg = {
+				'text': 'Quantidade inválida nas informações da caixa',
+				'level': 'error',
+			}
+			logging.error(f'Invalid quantity in box info: {qtd}')
+			return
 
 		logging.info(f'box_id={box_id}, qtd={qtd}, sku={sku}, datetime={dt_str}')
 
 		self.box_info = {'box_id': box_id, 'qty': qtd, 'sku': sku}
 		logging.info(f'Updating box info: {self.box_info}')
-		self.state_msg = {'text': 'Box info updated', 'level': 'success'}
+		self.state_msg = {'text': 'Informações da caixa atualizadas', 'level': 'success'}
+		self.tags.clear()
 
 	def validate_box_info(self, name: str):
 		status = True
@@ -80,9 +89,16 @@ class Controller:
 			error_msg = f'Failed to write GPO for approving box: {msg}'
 			self.state_msg = {'text': error_msg, 'level': 'error'}
 			logging.error(error_msg)
+			# Save as rejected due to hardware/control error
+			self.save_box_result(2)
 		else:
-			self.state_msg = {'text': 'Box approved successfully!', 'level': 'success'}
+			self.state_msg = {
+				'text': f'Caixa {self.box_info.get("box_id")} aprovada com sucesso!',
+				'level': 'success',
+			}
 			logging.info('GPO write successful for approving box')
+			# Persist successful approval
+			self.save_box_result(1)
 		self.reset_box()
 
 	async def _reject(self, name: str):
@@ -97,10 +113,21 @@ class Controller:
 			logging.error(error_msg)
 		else:
 			logging.info('GPO write successful for rejecting box')
+		# Save rejection result (2 = NOK)
+		self.save_box_result(2)
 		self.reset_box()
 
 	def reset_box(self):
 		self.box_info = {}
+		# Allow processing of next box
+		self.state_sent = False
+		# Clear transient state and tags to prepare for next operation
+		self.state_msg = {}
+		try:
+			self.tags.clear()
+		except Exception:
+			# Defensive: TagList may not implement clear()
+			pass
 
 	# [VALIDATION]
 	def _validate(self):
@@ -115,7 +142,7 @@ class Controller:
 		expected_sku = self.box_info.get('sku', None)
 
 		if not expected_sku or expected_qty <= 0:
-			self.state_msg = {'text': 'No box info available', 'level': 'error'}
+			self.state_msg = {'text': 'Informações da caixa indisponíveis', 'level': 'error'}
 			return 2
 
 		# Validate if has not unexpected skus
@@ -124,7 +151,7 @@ class Controller:
 			if sku != expected_sku:
 				logging.warning(f'Unexpected SKU found: {sku}. Expected: {expected_sku}')
 				self.state_msg = {
-					'text': f'Unexpected SKU found: {sku}. Expected: {expected_sku}',
+					'text': f'SKU inesperado encontrado: {sku}. Esperado: {expected_sku}',
 					'level': 'error',
 				}
 				return 2
@@ -151,7 +178,7 @@ class Controller:
 		# Reading is still in progress, wait and re-validate
 		if state == 0:
 			if make_action:
-				self.state_msg = {'text': 'Not enough tags', 'level': 'info'}
+				self.state_msg = {'text': 'Tags insuficientes', 'level': 'info'}
 				self.reject_box(name)
 		# Box OK
 		elif state == 1:
@@ -165,12 +192,13 @@ class Controller:
 				)
 		# Box NOK
 		elif state == 2:
-			self.state_msg = {'text': 'Box rejected, quantity exceeds expected', 'level': 'error'}
+			# `_validate` may have already set a descriptive `state_msg` (e.g. unexpected SKU).
+			if not self.state_msg:
+				self.state_msg = {
+					'text': 'Caixa rejeitada, quantidade excede o esperado',
+					'level': 'error',
+				}
 			self.reject_box(name)
-
-		if state == 2 or make_action:
-			logging.info('Saving box result to database')
-			self.save_box_result(state)
 
 	def save_box_result(self, validation_state: int):
 		state_str = None
