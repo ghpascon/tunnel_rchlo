@@ -94,6 +94,7 @@ poetry run python build_exe.py
 
 - **config/config.json:**
   - Título, porta, URL do banco, URLs de integração, configuração de logs, dispositivos, MQTT, políticas de armazenamento.
+  - `SQL_ECHO`: habilita/desabilita logs SQL detalhados do SQLAlchemy (recomendado `false` em produção).
 - **config/devices/*.json:**
   - Configuração individual de cada leitor RFID (protocolo, antena, eventos, etc).
 - **app/core/config.py:**

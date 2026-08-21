@@ -216,6 +216,8 @@ class Controller:
 			for sku in current_skus:
 				if sku != expected_sku:
 					state_str = 'rejected - unexpected sku'
+			if state_str is None:
+				state_str = 'rejected - control error'
 
 		with self.integration.db_manager.get_session() as session:
 			result = BoxResults(
@@ -229,6 +231,8 @@ class Controller:
 			session.add(result)
 			timestamp = datetime.now()
 			for tag in self.tags.get_all():
+				if not tag.get('epc'):
+					continue
 				tag_in_box = TagsInBox(
 					box_id=self.box_info.get('box_id', 'unknown'),
 					timestamp=timestamp,

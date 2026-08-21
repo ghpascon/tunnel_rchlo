@@ -44,6 +44,7 @@ class Settings:
 		self.TAG_PREFIX: str | None | list[str] = data.get('TAG_PREFIX', None)
 		self.WEBHOOK_URL: str | None = data.get('WEBHOOK_URL', None)
 		self.DATABASE_URL: str | None = data.get('DATABASE_URL', None)
+		self.SQL_ECHO: bool = data.get('SQL_ECHO', False)
 		self.XTRACK_URL: str | None = data.get('XTRACK_URL', None)
 		self.PORT: int = data.get('PORT', 5000)
 		self.VALIDATION_TIME: int = data.get('VALIDATION_TIME', 3000)

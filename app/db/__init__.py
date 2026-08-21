@@ -1,12 +1,18 @@
 from smartx_rfid.db import DatabaseManager
 import logging
 from app.models import get_all_models
+from app.core import settings
 
 
 def setup_database(database_url: str = None) -> DatabaseManager:
 	logging.info(f"{'='*60}")
 	logging.info('Initializing DatabaseManager')
-	db_manager = DatabaseManager(database_url=database_url, echo=True, pool_size=5, pool_timeout=30)
+	db_manager = DatabaseManager(
+		database_url=database_url,
+		echo=settings.SQL_ECHO,
+		pool_size=5,
+		pool_timeout=30,
+	)
 
 	logging.info('Initializing database...')
 	db_manager.initialize()
