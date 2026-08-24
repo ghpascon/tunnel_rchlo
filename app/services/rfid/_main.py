@@ -16,7 +16,9 @@ class RfidManager:
 
 		# connect to devices
 		self.devices = DeviceManager(
-			devices_path=devices_path, example_path=example_path, event_func=self.on_event
+			devices_path=devices_path,
+			example_path=f'{example_path}/devices',
+			event_func=self.on_event,
 		)
 
 		# INTEGRATION
@@ -98,3 +100,4 @@ class RfidManager:
 	def on_stop(self, name: str):
 		logging.info(f'[ STOP ] {name}')
 		self.controller.validate_tags(name=name, make_action=True)
+		self.controller.reset_box()

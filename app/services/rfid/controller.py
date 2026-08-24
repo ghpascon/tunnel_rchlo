@@ -83,7 +83,7 @@ class Controller:
 		logging.info(f"{'='*20} Approving box {'='*20}")
 		logging.info(f'Box info: {self.box_info}')
 		success, msg = await self.devices.write_gpo(
-			device_name=name, pin=1, state=True, control='pulsed', time=300
+			device_name=name, pin=1, state=True, control='pulsed', time=2000
 		)
 		if not success:
 			error_msg = f'Failed to write GPO for approving box: {msg}'
@@ -99,13 +99,12 @@ class Controller:
 			logging.info('GPO write successful for approving box')
 			# Persist successful approval
 			self.save_box_result(1)
-		self.reset_box()
 
 	async def _reject(self, name: str):
 		logging.info(f"{'='*20} Rejecting box {'='*20}")
 		logging.info(f'Box info: {self.box_info}')
 		success, msg = await self.devices.write_gpo(
-			device_name=name, pin=2, state=True, control='pulsed', time=300
+			device_name=name, pin=2, state=True, control='pulsed', time=2000
 		)
 		if not success:
 			error_msg = f'Failed to write GPO for rejecting box: {msg}'
@@ -115,7 +114,6 @@ class Controller:
 			logging.info('GPO write successful for rejecting box')
 		# Save rejection result (2 = NOK)
 		self.save_box_result(2)
-		self.reset_box()
 
 	def reset_box(self):
 		self.box_info = {}
@@ -219,6 +217,10 @@ class Controller:
 
 		if self.integration.db_manager is None:
 			logging.warning('Database manager is not initialized. Skipping save_box_result.')
+			return
+
+		if not self.box_info or not self.box_info.get('box_id'):
+			logging.warning('Box info is missing box_id. Skipping save_box_result.')
 			return
 
 		with self.integration.db_manager.get_session() as session:

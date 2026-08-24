@@ -4,59 +4,14 @@
     "USERNAME": "root",
     "PASSWORD": "impinj",
     "START_READING": false,
-    "READING_CONFIG": {
-        "antennaConfigs": [
-            {
-                "antennaPort": 1,
-                "estimatedTagPopulation": 16,
-                "fastId": "enabled",
-                "inventorySearchMode": "single-target",
-                "inventorySession": 1,
-                "receiveSensitivityDbm": -60,
-                "rfMode": 1111,
-                "transmitPowerCdbm": 3300
-            }
-        ],
-        "startTriggers": [
-            {
-                "gpiTransitionEvent": {
-                    "gpi": 1,
-                    "transition": "high-to-low"
-                }
-            }
-        ],
-        "stopTriggers": [
-            {
-                "gpiTransitionEvent": {
-                    "gpi": 1,
-                    "transition": "low-to-high"
-                }
-            }
-        ],
-        "eventConfig": {
-            "common": {
-                "hostname": "disabled"
-            },
-            "tagInventory": {
-                "epc": "disabled",
-                "epcHex": "enabled",
-                "xpcHex": "disabled",
-                "tid": "disabled",
-                "tidHex": "enabled",
-                "antennaPort": "enabled",
-                "transmitPowerCdbm": "disabled",
-                "peakRssiCdbm": "enabled",
-                "frequency": "disabled",
-                "pc": "disabled",
-                "lastSeenTime": "disabled",
-                "phaseAngle": "disabled",
-                "tagReporting": {
-                    "reportingIntervalSeconds": 1,
-                    "tagCacheSize": 2048,
-                    "antennaIdentifier": "antennaPort",
-                    "tagIdentifier": "epc"
-                }
-            }
-        }
-    }
+    "SESSION": 1,
+    "ACTIVE_ANT": [
+        1
+    ],
+    "READ_POWER": 10,
+    "READ_RSSI": -80,
+    "SEARCH_MODE": "single-target",
+    "RF_MODE": 1110,
+    "GPI_START": true,
+    "FIRMWARE_VERSION": "8.4.1"
 }
