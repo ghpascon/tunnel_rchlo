@@ -56,10 +56,16 @@ class Controller:
 	def validate_box_info(self, name: str):
 		status = True
 		if self.box_info.get('box_id') is None:
-			logging.warning('Box info is missing box_id')
+			msg = f'Box info is missing box_id for device {name}'
+			logging.error(msg)
+			self.state_msg = {'text': 'Informações da caixa indisponíveis', 'level': 'error'}
 			status = False
 		if self.box_info.get('qty', 0) <= 0:
 			logging.warning('Box info has invalid quantity')
+			self.state_msg = {
+				'text': 'Quantidade inválida nas informações da caixa',
+				'level': 'error',
+			}
 			status = False
 
 		if not status:
@@ -176,7 +182,7 @@ class Controller:
 		# Reading is still in progress, wait and re-validate
 		if state == 0:
 			if make_action:
-				self.state_msg = {'text': 'Tags insuficientes', 'level': 'info'}
+				self.state_msg = {'text': 'Tags insuficientes', 'level': 'error'}
 				self.reject_box(name)
 		# Box OK
 		elif state == 1:
