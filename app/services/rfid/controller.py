@@ -150,8 +150,6 @@ class Controller:
 	def reset_box(self):
 		self._cancel_pending_validation()
 		self.box_info = {}
-		# Allow processing of next box
-		self.state_sent = False
 		# NOTE: state_msg is intentionally NOT cleared here so the frontend
 		# can still read the last result via /get_state before it is consumed.
 		try:
