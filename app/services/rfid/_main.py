@@ -100,4 +100,3 @@ class RfidManager:
 	def on_stop(self, name: str):
 		logging.info(f'[ STOP ] {name}')
 		self.controller.validate_tags(name=name, make_action=True)
-		self.controller.reset_box()

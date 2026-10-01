@@ -18,9 +18,17 @@ class Controller:
 		self.state_msg = {}
 		self.integration = integration
 		self.last_tags = []
+		self._pending_validation_task = None
+
+	def _cancel_pending_validation(self):
+		task = self._pending_validation_task
+		if task is not None and not task.done():
+			task.cancel()
+		self._pending_validation_task = None
 
 	# [BOX INFO]
 	def update_box_info(self, box_info: str):
+		self._cancel_pending_validation()
 		parts = box_info.replace('ç', ';').split(';')
 		if len(parts) != 4:
 			self.state_msg = {
@@ -74,54 +82,73 @@ class Controller:
 
 	# [ACTIONS]
 	def approve_box(self, name: str):
-		asyncio.create_task(self._approve(name))
+		self._cancel_pending_validation()
+		box_info_snapshot = self.box_info.copy()
+		tags_snapshot = [dict(tag) for tag in self.tags.get_all()]
+		asyncio.create_task(self._approve(name, box_info_snapshot, tags_snapshot))
 		self.state_sent = True
 
 	def reject_box(self, name: str):
-		asyncio.create_task(self._reject(name))
+		self._cancel_pending_validation()
+		box_info_snapshot = self.box_info.copy()
+		tags_snapshot = [dict(tag) for tag in self.tags.get_all()]
+		asyncio.create_task(self._reject(name, box_info_snapshot, tags_snapshot))
 		self.state_sent = True
 
-	async def _approve(self, name: str):
+	async def _approve(self, name: str, box_info_snapshot: dict, tags_snapshot: list):
 		self.last_tags = self.last_tags + [
-			{'epc': tag.get('epc'), 'timestamp': datetime.now()} for tag in self.tags.get_all()
+			{'epc': tag.get('epc'), 'timestamp': datetime.now()} for tag in tags_snapshot
 		]
 
 		logging.info(f"{'='*20} Approving box {'='*20}")
-		logging.info(f'Box info: {self.box_info}')
-		success, msg = await self.devices.write_gpo(
-			device_name=name, pin=1, state=True, control='pulsed', time=2000
-		)
-		if not success:
-			error_msg = f'Failed to write GPO for approving box: {msg}'
-			self.state_msg = {'text': error_msg, 'level': 'error'}
-			logging.error(error_msg)
-			# Save as rejected due to hardware/control error
-			self.save_box_result(2)
-		else:
-			self.state_msg = {
-				'text': f'Caixa {self.box_info.get("box_id")} aprovada com sucesso!',
-				'level': 'success',
-			}
-			logging.info('GPO write successful for approving box')
-			# Persist successful approval
-			self.save_box_result(1)
+		logging.info(f'Box info: {box_info_snapshot}')
+		try:
+			success, msg = await self.devices.write_gpo(
+				device_name=name, pin=1, state=True, control='pulsed', time=2000
+			)
+			if not success:
+				error_msg = f'Failed to write GPO for approving box: {msg}'
+				self.state_msg = {'text': error_msg, 'level': 'error'}
+				logging.error(error_msg)
+				# Save as rejected due to hardware/control error
+				self.save_box_result(2, box_info_snapshot, tags_snapshot)
+			else:
+				self.state_msg = {
+					'text': f'Caixa {box_info_snapshot.get("box_id")} aprovada com sucesso!',
+					'level': 'success',
+				}
+				logging.info('GPO write successful for approving box')
+				# Persist successful approval
+				self.save_box_result(1, box_info_snapshot, tags_snapshot)
+		except Exception as e:
+			logging.exception(f'Unexpected error while approving box: {e}')
+			self.state_msg = {'text': 'Erro inesperado ao aprovar caixa', 'level': 'error'}
+		finally:
+			self.reset_box()
 
-	async def _reject(self, name: str):
+	async def _reject(self, name: str, box_info_snapshot: dict, tags_snapshot: list):
 		logging.info(f"{'='*20} Rejecting box {'='*20}")
-		logging.info(f'Box info: {self.box_info}')
-		success, msg = await self.devices.write_gpo(
-			device_name=name, pin=2, state=True, control='pulsed', time=2000
-		)
-		if not success:
-			error_msg = f'Failed to write GPO for rejecting box: {msg}'
-			self.state_msg = {'text': error_msg, 'level': 'error'}
-			logging.error(error_msg)
-		else:
-			logging.info('GPO write successful for rejecting box')
-		# Save rejection result (2 = NOK)
-		self.save_box_result(2)
+		logging.info(f'Box info: {box_info_snapshot}')
+		try:
+			success, msg = await self.devices.write_gpo(
+				device_name=name, pin=2, state=True, control='pulsed', time=2000
+			)
+			if not success:
+				error_msg = f'Failed to write GPO for rejecting box: {msg}'
+				self.state_msg = {'text': error_msg, 'level': 'error'}
+				logging.error(error_msg)
+			else:
+				logging.info('GPO write successful for rejecting box')
+			# Save rejection result (2 = NOK)
+			self.save_box_result(2, box_info_snapshot, tags_snapshot)
+		except Exception as e:
+			logging.exception(f'Unexpected error while rejecting box: {e}')
+			self.state_msg = {'text': 'Erro inesperado ao reprovar caixa', 'level': 'error'}
+		finally:
+			self.reset_box()
 
 	def reset_box(self):
+		self._cancel_pending_validation()
 		self.box_info = {}
 		# Allow processing of next box
 		self.state_sent = False
@@ -189,7 +216,8 @@ class Controller:
 			if make_action:
 				self.approve_box(name)
 			else:
-				asyncio.create_task(
+				self._cancel_pending_validation()
+				self._pending_validation_task = asyncio.create_task(
 					delayed_function(
 						self.validate_tags, settings.VALIDATION_TIME, name, make_action=True
 					)
@@ -204,50 +232,64 @@ class Controller:
 				}
 			self.reject_box(name)
 
-	def save_box_result(self, validation_state: int):
+	def save_box_result(
+		self, validation_state: int, box_info_data: dict = None, tags_data: list = None
+	):
+		box_info_data = box_info_data if box_info_data is not None else self.box_info
+		tags_data = tags_data if tags_data is not None else self.tags.get_all()
+
 		state_str = None
 		if validation_state == 1:
 			state_str = 'approved'
 		else:
-			current_qty = len(self.tags)
-			expected_qty = self.box_info.get('qty', 0)
-			expected_sku = self.box_info.get('sku', None)
+			current_qty = len(tags_data)
+			expected_qty = box_info_data.get('qty', 0)
+			expected_sku = box_info_data.get('sku', None)
 			if current_qty < expected_qty:
 				state_str = 'rejected - not enough tags'
 			elif current_qty > expected_qty:
 				state_str = 'rejected - too many tags'
-			current_skus = [tag.get('sku') for tag in self.tags.get_all()]
+			current_skus = [tag.get('sku') for tag in tags_data]
 			for sku in current_skus:
 				if sku != expected_sku:
 					state_str = 'rejected - unexpected sku'
+
+		# Ensure we never attempt to insert a NULL `status` into the DB.
+		if state_str is None:
+			# Prefer the human-readable message if available.
+			if isinstance(self.state_msg, dict) and self.state_msg.get('text'):
+				state_str = f"rejected - {self.state_msg.get('text')}"
+			else:
+				state_str = 'rejected - unknown reason'
+
+		logging.info(f'Final box status: {state_str}')
 
 		if self.integration.db_manager is None:
 			logging.warning('Database manager is not initialized. Skipping save_box_result.')
 			return
 
-		if not self.box_info or not self.box_info.get('box_id'):
+		if not box_info_data or not box_info_data.get('box_id'):
 			logging.warning('Box info is missing box_id. Skipping save_box_result.')
 			return
 
 		with self.integration.db_manager.get_session() as session:
 			result = BoxResults(
-				box_id=self.box_info.get('box_id', 'unknown'),
-				sku=self.box_info.get('sku', 'unknown'),
-				expected_qty=self.box_info.get('qty', 0),
-				found_qty=len(self.tags),
+				box_id=box_info_data.get('box_id', 'unknown'),
+				sku=box_info_data.get('sku', 'unknown'),
+				expected_qty=box_info_data.get('qty', 0),
+				found_qty=len(tags_data),
 				status=state_str,
 			)
 			logging.info(f'Box result: {result}')
 			session.add(result)
 			timestamp = datetime.now()
-			for tag in self.tags.get_all():
+			for tag in tags_data:
 				tag_in_box = TagsInBox(
-					box_id=self.box_info.get('box_id', 'unknown'),
+					box_id=box_info_data.get('box_id', 'unknown'),
 					timestamp=timestamp,
 					epc=tag.get('epc'),
 				)
 				session.add(tag_in_box)
-			session.commit()
 
 	# Last Tags
 	def epc_in_last_tags(self, epc: str) -> bool:
