@@ -194,11 +194,10 @@ class Controller:
 				return 2
 
 		# Validate quantity
-		tolerance_qty = (settings.TOLERANCE_PERCENT / 100) * expected_qty
 		if make_action:
-			if current_qty < expected_qty and not current_qty + tolerance_qty < expected_qty:
+			if current_qty < expected_qty and not current_qty + settings.TOLERANCE < expected_qty:
 				return 3
-			elif current_qty > expected_qty and not current_qty - tolerance_qty > expected_qty:
+			elif current_qty > expected_qty and not current_qty - settings.TOLERANCE > expected_qty:
 				return 3
 
 		if current_qty < expected_qty:
