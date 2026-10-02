@@ -19,6 +19,7 @@ class Controller:
 		self.integration = integration
 		self.last_tags = []
 		self._pending_validation_task = None
+		self.agregate_box: bool = False
 
 	def _cancel_pending_validation(self):
 		task = self._pending_validation_task
@@ -56,7 +57,19 @@ class Controller:
 
 		logging.info(f'box_id={box_id}, qtd={qtd}, sku={sku}, datetime={dt_str}')
 
-		self.box_info = {'box_id': box_id, 'qty': qtd, 'sku': sku}
+		if not self.box_info or not self.agregate_box:
+			self.box_info = {'box_id': box_id, 'qty': qtd, 'sku': sku}
+		else:
+			if not sku == self.box_info['sku']:
+				self.state_msg = {'text': 'SKU diferente da caixa anterior', 'level': 'error'}
+				logging.error(f'SKU mismatch: {sku} != {self.box_info["sku"]}')
+				return
+			if box_id in self.box_info['box_id'].split(';'):
+				self.state_msg = {'text': 'Caixa já adicionada anteriormente', 'level': 'error'}
+				logging.error(f'Box ID already added: {box_id}')
+				return
+			self.box_info['box_id'] += f'|{box_id}'
+			self.box_info['qty'] += qtd
 		logging.info(f'Updating box info: {self.box_info}')
 		self.state_msg = {'text': 'Informações da caixa atualizadas', 'level': 'success'}
 		self.tags.clear()

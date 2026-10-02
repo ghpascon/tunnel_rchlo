@@ -62,3 +62,23 @@ async def generate_tags_in_box_report():
 		return JSONResponse(content=results)
 	except Exception as e:
 		return JSONResponse(status_code=500, content={'error': str(e)})
+
+
+@router.get(
+	'/agregate_box',
+	summary='Agregate box',
+	description='Gets the current state of the agregate_box flag.',
+)
+async def get_agregate_box():
+	return JSONResponse(content={'agregate_box': rfid_manager.controller.agregate_box})
+
+
+@router.post(
+	'/agregate_box/{state}',
+	summary='Agregate box',
+	description='Sets the agregate_box flag to True or False.',
+)
+async def set_agregate_box(state: int):
+	rfid_manager.controller.agregate_box = bool(state)
+	print(f'Agregate box state set to: {bool(state)}')
+	return JSONResponse(content={'agregate_box': bool(state)})

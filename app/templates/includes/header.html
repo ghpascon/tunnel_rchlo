@@ -18,14 +18,14 @@
           class="text-gray-700 hover:text-gray-900 font-medium text-sm lg:text-base whitespace-nowrap">Devices</a>
         <a href="/settings/application"
           class="text-gray-700 hover:text-gray-900 font-medium text-sm lg:text-base whitespace-nowrap">Settings</a>
-       <a href="/logs"
+        <a href="/logs"
           class="text-gray-700 hover:text-gray-900 font-medium text-sm lg:text-base whitespace-nowrap">Logs</a>
         <!-- DEV  -->
         <a href="/docs"
           class="text-gray-700 hover:text-gray-900 font-medium text-sm lg:text-base whitespace-nowrap">Docs</a><a
           href="/license"
           class="text-gray-700 hover:text-gray-900 font-medium text-sm lg:text-base whitespace-nowrap">License</a>
-         <!-- Report -->
+        <!-- Report -->
         <a href="{{ url_for('generate_results_report') }}" data-tag-report="true"
           class="inline-flex items-center px-3 py-1.5 border border-gray-300 rounded-md text-gray-700 hover:text-gray-900 hover:border-gray-400 font-medium text-sm lg:text-base whitespace-nowrap">Gerar
           Relatório</a>
@@ -35,6 +35,16 @@
           Relatório Tags</a>
 
       </nav>
+
+      <div class="flex items-center gap-2 flex-shrink-0" title="Agregar caixas">
+        <span class="text-xs sm:text-sm font-medium text-gray-700 whitespace-nowrap">Agregar caixas</span>
+        <label for="agregate-box-switch" class="relative inline-flex items-center cursor-pointer">
+          <input id="agregate-box-switch" type="checkbox" class="sr-only peer" />
+          <div
+            class="w-10 h-5 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:bg-emerald-500 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-5">
+          </div>
+        </label>
+      </div>
 
       {# Mobile menu button #}
       <div class="md:hidden flex-shrink-0" x-data="{ open: false }">
@@ -54,6 +64,63 @@
       <script>
         // Clone navbar links into mobile dropdown
         document.addEventListener('DOMContentLoaded', function () {
+          const getAggregateEndpoint = "{{ url_for('get_agregate_box') }}";
+          const setAggregateEndpointOn = "{{ url_for('set_agregate_box', state=1) }}";
+          const setAggregateEndpointOff = "{{ url_for('set_agregate_box', state=0) }}";
+
+          function initAggregateBoxSwitch() {
+            const aggregateSwitch = document.getElementById('agregate-box-switch');
+            if (!aggregateSwitch) {
+              return;
+            }
+
+            const loadCurrentState = async function () {
+              try {
+                const response = await fetch(getAggregateEndpoint, {
+                  headers: { 'Accept': 'application/json' }
+                });
+                if (!response.ok) {
+                  throw new Error('Failed to load aggregate state');
+                }
+                const payload = await response.json();
+                aggregateSwitch.checked = Boolean(payload.agregate_box);
+              } catch (error) {
+                console.error('Could not load agregate_box state:', error);
+              }
+            };
+
+            if (aggregateSwitch.dataset.aggregateBound !== 'true') {
+              aggregateSwitch.dataset.aggregateBound = 'true';
+              aggregateSwitch.addEventListener('change', async function () {
+                const targetState = aggregateSwitch.checked ? 1 : 0;
+                const endpoint = targetState === 1 ? setAggregateEndpointOn : setAggregateEndpointOff;
+
+                aggregateSwitch.disabled = true;
+                try {
+                  const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Accept': 'application/json' }
+                  });
+
+                  if (!response.ok) {
+                    throw new Error('Failed to update aggregate state');
+                  }
+
+                  const payload = await response.json();
+                  aggregateSwitch.checked = Boolean(payload.agregate_box);
+                } catch (error) {
+                  aggregateSwitch.checked = !aggregateSwitch.checked;
+                  console.error('Could not update agregate_box state:', error);
+                  alert('Nao foi possivel atualizar o estado de agregar caixas.');
+                } finally {
+                  aggregateSwitch.disabled = false;
+                }
+              });
+            }
+
+            loadCurrentState();
+          }
+
           function bindTagReportHandlers(scope) {
             scope.querySelectorAll('a[data-tag-report="true"]').forEach(function (link) {
               if (link.dataset.tagReportBound === 'true') {
@@ -138,6 +205,7 @@
           }
 
           bindTagReportHandlers(document);
+          initAggregateBoxSwitch();
         });
       </script>
     </div>
