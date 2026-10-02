@@ -43,11 +43,12 @@ class Settings:
 		self.CLEAR_OLD_TAGS_INTERVAL: int | None = data.get('CLEAR_OLD_TAGS_INTERVAL', None)
 		self.TAG_PREFIX: str | None | list[str] = data.get('TAG_PREFIX', None)
 		self.WEBHOOK_URL: str | None = data.get('WEBHOOK_URL', None)
-		self.DATABASE_URL: str | None = data.get('DATABASE_URL', None)
+		self.DATABASE_URL: str | None = data.get('DATABASE_URL', 'sqlite:///rchlo.db')
 		self.XTRACK_URL: str | None = data.get('XTRACK_URL', None)
 		self.PORT: int = data.get('PORT', 5000)
 		self.VALIDATION_TIME: int = data.get('VALIDATION_TIME', 3000)
 		self.CLEAR_OLD_TAGS_MINUTES: int = data.get('CLEAR_OLD_TAGS_MINUTES', 20)
+		self.TOLERANCE_PERCENT: int = data.get('TOLERANCE_PERCENT', 12)
 
 	def get_current_settings(self):
 		return {

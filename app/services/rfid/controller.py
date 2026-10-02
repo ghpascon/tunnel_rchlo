@@ -81,11 +81,11 @@ class Controller:
 		return status
 
 	# [ACTIONS]
-	def approve_box(self, name: str):
+	def approve_box(self, name: str, on_tolerance: bool = False):
 		self._cancel_pending_validation()
 		box_info_snapshot = self.box_info.copy()
 		tags_snapshot = [dict(tag) for tag in self.tags.get_all()]
-		asyncio.create_task(self._approve(name, box_info_snapshot, tags_snapshot))
+		asyncio.create_task(self._approve(name, box_info_snapshot, tags_snapshot, on_tolerance))
 		self.state_sent = True
 
 	def reject_box(self, name: str):
@@ -95,7 +95,9 @@ class Controller:
 		asyncio.create_task(self._reject(name, box_info_snapshot, tags_snapshot))
 		self.state_sent = True
 
-	async def _approve(self, name: str, box_info_snapshot: dict, tags_snapshot: list):
+	async def _approve(
+		self, name: str, box_info_snapshot: dict, tags_snapshot: list, on_tolerance: bool = False
+	):
 		self.last_tags = self.last_tags + [
 			{'epc': tag.get('epc'), 'timestamp': datetime.now()} for tag in tags_snapshot
 		]
@@ -113,10 +115,16 @@ class Controller:
 				# Save as rejected due to hardware/control error
 				self.save_box_result(2, box_info_snapshot, tags_snapshot)
 			else:
-				self.state_msg = {
-					'text': f'Caixa {box_info_snapshot.get("box_id")} aprovada com sucesso!',
-					'level': 'success',
-				}
+				if on_tolerance:
+					self.state_msg = {
+						'text': f'Caixa {box_info_snapshot.get("box_id")} aprovada dentro da tolerância!',
+						'level': 'info',
+					}
+				else:
+					self.state_msg = {
+						'text': f'Caixa {box_info_snapshot.get("box_id")} aprovada com sucesso!',
+						'level': 'success',
+					}
 				logging.info('GPO write successful for approving box')
 				# Persist successful approval
 				self.save_box_result(1, box_info_snapshot, tags_snapshot)
@@ -159,7 +167,7 @@ class Controller:
 			pass
 
 	# [VALIDATION]
-	def _validate(self):
+	def _validate(self, make_action: bool = False):
 		"""
 		States:
 		0 = Reading in progress
@@ -186,6 +194,13 @@ class Controller:
 				return 2
 
 		# Validate quantity
+		tolerance_qty = (settings.TOLERANCE_PERCENT / 100) * expected_qty
+		if make_action:
+			if current_qty < expected_qty and not current_qty + tolerance_qty < expected_qty:
+				return 3
+			elif current_qty > expected_qty and not current_qty - tolerance_qty > expected_qty:
+				return 3
+
 		if current_qty < expected_qty:
 			return 0
 		elif current_qty > expected_qty:
@@ -202,7 +217,7 @@ class Controller:
 		if make_action:
 			logging.info(f"{'='*20} Validating box {'='*20}")
 		logging.info(f"Current qty: {len(self.tags)}, Expected qty: {self.box_info.get('qty', 0)}")
-		state = self._validate()
+		state = self._validate(make_action)
 
 		# Reading is still in progress, wait and re-validate
 		if state == 0:
@@ -222,13 +237,11 @@ class Controller:
 				)
 		# Box NOK
 		elif state == 2:
-			# `_validate` may have already set a descriptive `state_msg` (e.g. unexpected SKU).
-			if not self.state_msg:
-				self.state_msg = {
-					'text': 'Caixa rejeitada, quantidade excede o esperado',
-					'level': 'error',
-				}
 			self.reject_box(name)
+		# Tolerance exceeded
+		elif state == 3:
+			if make_action:
+				self.approve_box(name, on_tolerance=True)
 
 	def save_box_result(
 		self, validation_state: int, box_info_data: dict = None, tags_data: list = None
@@ -239,6 +252,8 @@ class Controller:
 		state_str = None
 		if validation_state == 1:
 			state_str = 'approved'
+		elif validation_state == 3:
+			state_str = 'approved within tolerance'
 		else:
 			current_qty = len(tags_data)
 			expected_qty = box_info_data.get('qty', 0)
@@ -270,24 +285,32 @@ class Controller:
 			logging.warning('Box info is missing box_id. Skipping save_box_result.')
 			return
 
-		with self.integration.db_manager.get_session() as session:
-			result = BoxResults(
-				box_id=box_info_data.get('box_id', 'unknown'),
-				sku=box_info_data.get('sku', 'unknown'),
-				expected_qty=box_info_data.get('qty', 0),
-				found_qty=len(tags_data),
-				status=state_str,
+		try:
+			self.integration.db_manager.insert_record(
+				BoxResults,
+				{
+					'box_id': box_info_data.get('box_id', 'unknown'),
+					'sku': box_info_data.get('sku', 'unknown'),
+					'expected_qty': box_info_data.get('qty', 0),
+					'found_qty': len(tags_data),
+					'status': state_str,
+				},
 			)
-			logging.info(f'Box result: {result}')
-			session.add(result)
-			timestamp = datetime.now()
-			for tag in tags_data:
-				tag_in_box = TagsInBox(
-					box_id=box_info_data.get('box_id', 'unknown'),
-					timestamp=timestamp,
-					epc=tag.get('epc'),
+			tags_data = [
+				{
+					'box_id': box_info_data.get('box_id', 'unknown'),
+					'timestamp': datetime.now(),
+					'epc': tag.get('epc'),
+				}
+				for tag in tags_data
+			]
+			if tags_data:
+				self.integration.db_manager.bulk_insert(
+					TagsInBox,
+					tags_data,
 				)
-				session.add(tag_in_box)
+		except Exception as e:
+			logging.error(f'Failed to save box result: {e}')
 
 	# Last Tags
 	def epc_in_last_tags(self, epc: str) -> bool:
