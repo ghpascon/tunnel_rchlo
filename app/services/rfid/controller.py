@@ -194,7 +194,7 @@ class Controller:
 				return 2
 
 		# Validate quantity
-		if make_action:
+		if make_action and current_qty:
 			if current_qty < expected_qty and not current_qty + settings.TOLERANCE < expected_qty:
 				return 3
 			elif current_qty > expected_qty and not current_qty - settings.TOLERANCE > expected_qty:

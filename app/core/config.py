@@ -46,7 +46,7 @@ class Settings:
 		self.DATABASE_URL: str | None = data.get('DATABASE_URL', 'sqlite:///rchlo.db')
 		self.XTRACK_URL: str | None = data.get('XTRACK_URL', None)
 		self.PORT: int = data.get('PORT', 5000)
-		self.VALIDATION_TIME: int = data.get('VALIDATION_TIME', 3000)
+		self.VALIDATION_TIME: int = data.get('VALIDATION_TIME', 3)
 		self.CLEAR_OLD_TAGS_MINUTES: int = data.get('CLEAR_OLD_TAGS_MINUTES', 5)
 		self.TOLERANCE: int = data.get('TOLERANCE', 1)
 		self.save()
