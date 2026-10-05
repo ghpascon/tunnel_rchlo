@@ -1,9 +1,13 @@
+import csv
+
+from app.models.rfid import BoxResults, TagsInBox
 from app.services import rfid_manager
 import logging
 import asyncio
 from app.core import settings
 from datetime import datetime, timedelta
 from app.models import get_all_models
+import os
 
 
 async def connect_on_startup():
@@ -125,3 +129,37 @@ async def clear_old_last_tags():
 	while True:
 		await asyncio.sleep(60)
 		rfid_manager.controller.clear_old_last_tags(minutes=settings.CLEAR_OLD_TAGS_MINUTES)
+
+
+async def generate_reports():
+	while True:
+		# Implement the logic to generate reports and save them to the REPORT_FOLDER
+		logging.info(f'Generating reports in {settings.REPORT_FOLDER}')
+
+		results = rfid_manager.integration.generate_table_report(
+			model=BoxResults, limit=1000000000, offset=0
+		).get('data', [])
+		tags = rfid_manager.integration.generate_table_report(
+			model=TagsInBox, limit=1000000000, offset=0
+		).get('data', [])
+
+		now = datetime.now().astimezone().isoformat()
+		# Save both dicts reports to CSV files with headers
+		box_results_path = os.path.join(settings.REPORT_FOLDER, f'box_results_{now}.csv')
+		tags_in_box_path = os.path.join(settings.REPORT_FOLDER, f'tags_in_box_{now}.csv')
+
+		if results:
+			with open(box_results_path, 'w', encoding='utf8', newline='') as f:
+				writer = csv.DictWriter(f, fieldnames=results[0].keys() if results else [])
+				writer.writeheader()
+				writer.writerows(results)
+
+		if tags:
+			with open(tags_in_box_path, 'w', encoding='utf8', newline='') as f:
+				writer = csv.DictWriter(f, fieldnames=tags[0].keys() if tags else [])
+				writer.writeheader()
+				writer.writerows(tags)
+
+		rfid_manager.integration.db_manager.clear_table(BoxResults)
+		rfid_manager.integration.db_manager.clear_table(TagsInBox)
+		await asyncio.sleep(settings.REPORT_INTERVAL_MINUTES * 60)

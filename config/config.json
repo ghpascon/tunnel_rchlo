@@ -12,5 +12,7 @@
     "PORT": 5000,
     "VALIDATION_TIME": 3,
     "CLEAR_OLD_TAGS_MINUTES": 5,
-    "TOLERANCE": 1
+    "TOLERANCE": 1,
+    "REPORT_FOLDER": "reports",
+    "REPORT_INTERVAL_MINUTES": 3600
 }

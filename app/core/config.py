@@ -49,6 +49,12 @@ class Settings:
 		self.VALIDATION_TIME: int = data.get('VALIDATION_TIME', 3)
 		self.CLEAR_OLD_TAGS_MINUTES: int = data.get('CLEAR_OLD_TAGS_MINUTES', 5)
 		self.TOLERANCE: int = data.get('TOLERANCE', 1)
+		self.REPORT_FOLDER: str | None = data.get('REPORT_FOLDER', 'reports')
+		if not self.REPORT_FOLDER:
+			self.REPORT_FOLDER = 'reports'
+		if not os.path.exists(self.REPORT_FOLDER):
+			os.makedirs(self.REPORT_FOLDER, exist_ok=True)
+		self.REPORT_INTERVAL_MINUTES: int = data.get('REPORT_INTERVAL_MINUTES', 3600)
 		self.save()
 
 	def get_current_settings(self):
