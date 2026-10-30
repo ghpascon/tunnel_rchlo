@@ -1,14 +1,11 @@
-<div
-  id="box-info-container"
-  class="p-4 bg-gray-100 border border-gray-300 rounded mb-4"
->
+<div id="box-info-container" class="p-4 bg-gray-100 border border-gray-300 rounded mb-4">
   <div class="flex flex-wrap items-center gap-2">
     <span class="text-lg font-semibold">Box Info</span>
     <span class="border-l h-6 border-gray-400 mx-2"></span>
-    <div
-      id="box-info-content"
-      class="flex flex-wrap items-center gap-x-6 gap-y-2 text-lg"
-    ></div>
+    <div id="box-info-content" class="flex flex-wrap items-center gap-x-6 gap-y-2 text-lg"></div>
+    <span class="text-sm font-semibold text-gray-600">
+      Na fila: <span id="next-boxes-count">0</span>
+    </span>
   </div>
 </div>
 
@@ -34,6 +31,19 @@
 
   fetchBoxInfo();
   setInterval(fetchBoxInfo, 500);
+
+  async function fetchNextBoxes() {
+    try {
+      const response = await fetch("{{ url_for('get_next_boxes') }}");
+      const boxes = await response.json();
+      document.getElementById("next-boxes-count").textContent = boxes.length;
+    } catch (e) {
+      // Keep the current count visible if the request temporarily fails.
+    }
+  }
+
+  fetchNextBoxes();
+  setInterval(fetchNextBoxes, 1000);
 
   async function pollState() {
     try {

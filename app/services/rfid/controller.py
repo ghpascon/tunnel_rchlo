@@ -12,6 +12,7 @@ from .integration import Integration
 class Controller:
 	def __init__(self, devices: DeviceManager, tags: TagList, integration: Integration):
 		self.box_info: dict = {}
+		self.next_boxes: list[dict] = []
 		self.tags = tags
 		self.devices = devices
 		self.state_sent = False
@@ -39,6 +40,11 @@ class Controller:
 			logging.error(f'Invalid box info format: {box_info}')
 			return
 		box_id, qtd, sku, dt_str = parts
+		box_id = box_id.strip()
+		if not box_id:
+			self.state_msg = {'text': 'Identificador da caixa inválido', 'level': 'error'}
+			logging.error('Box ID cannot be empty')
+			return
 		if len(sku) <= 11:
 			sku = sku.zfill(11)
 		else:
@@ -56,23 +62,29 @@ class Controller:
 			return
 
 		logging.info(f'box_id={box_id}, qtd={qtd}, sku={sku}, datetime={dt_str}')
+		box_id_key = box_id.casefold()
+		if any(
+			str(box.get('box_id', '')).strip().casefold() == box_id_key for box in self.next_boxes
+		):
+			self.state_msg = {'text': 'Caixa já adicionada na fila', 'level': 'error'}
+			logging.error(f'Box ID already in queue: {box_id}')
+			return
 
-		if not self.box_info or not self.agregate_box:
+		is_active_box = not self.box_info
+		if is_active_box:
 			self.box_info = {'box_id': box_id, 'qty': qtd, 'sku': sku}
-		else:
+		elif self.agregate_box:
 			if not sku == self.box_info['sku']:
 				self.state_msg = {'text': 'SKU diferente da caixa anterior', 'level': 'error'}
 				logging.error(f'SKU mismatch: {sku} != {self.box_info["sku"]}')
 				return
-			if box_id in self.box_info['box_id'].split(';'):
-				self.state_msg = {'text': 'Caixa já adicionada anteriormente', 'level': 'error'}
-				logging.error(f'Box ID already added: {box_id}')
-				return
 			self.box_info['box_id'] += f'|{box_id}'
 			self.box_info['qty'] += qtd
+		self.next_boxes.append({'box_id': box_id, 'qty': qtd, 'sku': sku})
 		logging.info(f'Updating box info: {self.box_info}')
 		self.state_msg = {'text': 'Informações da caixa atualizadas', 'level': 'success'}
-		self.tags.clear()
+		if is_active_box:
+			self.tags.clear()
 
 	def validate_box_info(self, name: str):
 		status = True
@@ -103,6 +115,7 @@ class Controller:
 
 	def reject_box(self, name: str):
 		self._cancel_pending_validation()
+		self.next_boxes.clear()
 		box_info_snapshot = self.box_info.copy()
 		tags_snapshot = [dict(tag) for tag in self.tags.get_all()]
 		asyncio.create_task(self._reject(name, box_info_snapshot, tags_snapshot))
@@ -111,6 +124,7 @@ class Controller:
 	async def _approve(
 		self, name: str, box_info_snapshot: dict, tags_snapshot: list, on_tolerance: bool = False
 	):
+		approval_succeeded = False
 		self.last_tags = self.last_tags + [
 			{'epc': tag.get('epc'), 'timestamp': datetime.now()} for tag in tags_snapshot
 		]
@@ -127,6 +141,7 @@ class Controller:
 				logging.error(error_msg)
 				# Save as rejected due to hardware/control error
 				self.save_box_result(2, box_info_snapshot, tags_snapshot)
+				self.next_boxes.clear()
 			else:
 				if on_tolerance:
 					self.state_msg = {
@@ -141,13 +156,34 @@ class Controller:
 				logging.info('GPO write successful for approving box')
 				# Persist successful approval
 				self.save_box_result(1, box_info_snapshot, tags_snapshot)
+				self._remove_approved_boxes(box_info_snapshot)
+				approval_succeeded = True
+				return
 		except Exception as e:
 			logging.exception(f'Unexpected error while approving box: {e}')
 			self.state_msg = {'text': 'Erro inesperado ao aprovar caixa', 'level': 'error'}
+			self.next_boxes.clear()
 		finally:
 			self.reset_box()
+			if approval_succeeded:
+				self._activate_next_box()
+
+	def _remove_approved_boxes(self, box_info_snapshot: dict):
+		approved_box_ids = {
+			box_id.strip().casefold() for box_id in box_info_snapshot.get('box_id', '').split('|')
+		}
+		self.next_boxes = [
+			box
+			for box in self.next_boxes
+			if str(box.get('box_id', '')).strip().casefold() not in approved_box_ids
+		]
+
+	def _activate_next_box(self):
+		if self.next_boxes:
+			self.box_info = self.next_boxes[0].copy()
 
 	async def _reject(self, name: str, box_info_snapshot: dict, tags_snapshot: list):
+		self.next_boxes.clear()
 		logging.info(f"{'='*20} Rejecting box {'='*20}")
 		logging.info(f'Box info: {box_info_snapshot}')
 		try:
@@ -166,6 +202,7 @@ class Controller:
 			logging.exception(f'Unexpected error while rejecting box: {e}')
 			self.state_msg = {'text': 'Erro inesperado ao reprovar caixa', 'level': 'error'}
 		finally:
+			self.next_boxes.clear()
 			self.reset_box()
 
 	def reset_box(self):

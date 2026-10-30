@@ -20,6 +20,11 @@ async def get_box_info():
 	return JSONResponse(content=rfid_manager.controller.box_info)
 
 
+@router.get('/next_boxes')
+async def get_next_boxes():
+	return JSONResponse(content=rfid_manager.controller.next_boxes)
+
+
 @router.get('/get_state')
 async def get_state():
 	message = rfid_manager.controller.state_msg.copy()
